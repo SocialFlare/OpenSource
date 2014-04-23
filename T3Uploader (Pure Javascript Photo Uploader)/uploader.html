@@ -1,0 +1,181 @@
+<!-- SF Uploader (Nicknamed T3 Uploader)
+ * Tyler James Thompson
+ * Brandon White
+ * SocialFlare 2014
+ * Open Source Pure Javascript Photo Uploader using new File API
+ * See readme for more details
+-->
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+<style>
+    .thumb {
+        height: 75px;
+        border: 1px solid #000;
+        margin: 10px 5px 0 0;
+    }
+    div#images div {
+        max-width:100px;
+        width:90px;
+        min-width: 80px;
+    }
+    div#images img {
+        max-width: 100px;
+        min-width: 80px;
+        width:90px;
+        height:auto;
+        min-height: 90px;
+        max-height: 100px;
+    }
+    #progress_bar.loading {
+        opacity: 1.0;
+    }
+    #progress_bar .percent {
+        color: #ffffff;
+        background-color: royalblue;
+        height: 14px;
+        width: 0;
+        max-width: 400px;
+        text-align: center;
+        font-size: 14px;
+    }
+
+    #drop_zone {
+        background: #444444;
+        border-radius: 5px;
+        padding-top: 15px;
+        padding-bottom: 15px;
+        padding-left: 30px;
+        padding-right: 30px;
+        color: white;
+    }
+</style>
+</head>
+<body>
+<div id="drop_zone" ondragenter="dragEnter(event)" ondragleave="dragExit(event)" ondragover="dragOver(event)" ondrop="return dragDrop(event)" draggable="true">Drop files here</div>
+<input type="file" name="photos" id="SFPhotoUploader" multiple/>
+<div id="progress_bar"><div class="percent">0%</div></div>
+<div id="images"></div>
+
+<script type="text/javascript">
+    function dragEnter(ev) {
+        document.getElementById('drop_zone').innerText = 'You going to drop that?';
+        ev.preventDefault();
+        return true;
+    }
+    function dragExit(ev){
+        document.getElementById('drop_zone').innerText = 'Drop files here';
+        ev.preventDefault();
+        return true;
+    }
+    function dragOver(ev) {
+        ev.preventDefault();
+    }
+    function dragDrop(ev) {
+        ev.stopPropagation();
+        ev.preventDefault();
+        console.log(ev);
+        document.getElementById('drop_zone').innerText = 'You dropped something. Thanks!';
+        setInterval(function(){document.getElementById('drop_zone').innerText = 'Drop files here';},1000);
+        var dataTransfer = ev.dataTransfer;
+        // var files = dataTransfer.files;
+        handleFileSelect(dataTransfer);
+        return false;
+    }
+
+    //get percentage
+    var progress = document.querySelector('.percent');
+
+    document.getElementById('SFPhotoUploader').addEventListener('change',changeUpload,false);
+
+    function changeUpload(evt){
+        if (evt.hasOwnProperty('stopPropagation')) { evt.stopPropagation(); }
+        if (evt.hasOwnProperty('preventDefault')) { evt.preventDefault(); }
+        handleFileSelect(evt);
+    }
+
+    function handleFileSelect(evt){
+        //get files
+        var files = (evt.hasOwnProperty('files')) ? evt.files : evt.target.files; // FileList object
+        // Reset progress indicator on new file selection.
+        progress.style.width = '0%';
+        progress.textContent = '0%';
+        //Begin upload to CDN
+        // Loop through the FileList and render image files as thumbnails.
+        for (var i = 0, f; f = files[i]; i++){
+                // Only process image files.
+            if (!f.type.match('image.*')){
+                continue;
+            }
+            var imageReader = new FileReader();
+            //add file api handlers
+            imageReader.onerror = errorHandler;
+            imageReader.onprogress = updateProgress;
+            imageReader.onloadstart = function(e) {
+                //Show progress bar
+                document.getElementById('progress_bar').className = 'loading';
+            };
+            //create new form data object
+            var data = new FormData();
+            //append files to data object
+            var file = files[i];
+            var fd = new FormData;
+            fd.append('SocialFlarePhoto', file);
+            //create new http request
+            var HttpRequest = new XMLHttpRequest();
+            //Add event listeners
+            HttpRequest.upload.addEventListener("progress", updateProgress, false);
+            //open connection
+            HttpRequest.open('post', "upload.php", true);
+            //send data through connection
+            HttpRequest.send(fd);
+            //wait till the image loads then run
+            imageReader.onload = (function(theFile){
+                // Ensure that the progress bar displays 100% at the end.
+                progress.style.width = '100%';
+                progress.textContent = '100%';
+                //set time out so the progress bar disappears
+                setTimeout("document.getElementById('progress_bar').className='';", 2000);
+                //returning image
+               return function(e){
+                   //render the thumbnail
+                   var span = document.createElement('span');
+                   span.innerHTML = ['<img class="thumb" src="', e.target.result,'" title="',encodeURI(theFile.name),'" />'].join('');
+                   document.getElementById('images').insertBefore(span, null);
+               };
+            })(f);
+            //read in the image file as a data url
+            imageReader.readAsDataURL(f);
+        }
+    }
+    function updateProgress(evt) {
+        // evt is an ProgressEvent.
+        if (evt.lengthComputable) {
+            var percentLoaded = Math.round((evt.loaded / evt.total) * 100);
+            // Increase the progress bar length.
+            if (percentLoaded < 100) {
+                progress.style.width = percentLoaded + '%';
+                progress.textContent = percentLoaded + '%';
+            }
+        }
+    }
+    function errorHandler(evt) {
+        switch(evt.target.error.code) {
+            case evt.target.error.NOT_FOUND_ERR:
+                alert('File Not Found!');
+                break;
+            case evt.target.error.NOT_READABLE_ERR:
+                alert('File is not readable');
+                break;
+            case evt.target.error.ABORT_ERR:
+                break;
+            default:
+                alert('An error occurred reading this file.');
+        };
+    }
+
+
+</script>
+</body>
+</html>
